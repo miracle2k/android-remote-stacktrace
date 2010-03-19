@@ -27,7 +27,7 @@ Mads Kristiansen, mads.kristiansen@nullwire.com
 Glen Humphrey
 Evan Charlton
 Peter Hewitt
-*/
+ */
 
 package com.nullwire.trace;
 
@@ -37,9 +37,7 @@ public class G {
 	public static String FILES_PATH 				= null;
 	public static String APP_VERSION 				= "unknown";
 	public static String APP_PACKAGE 				= "unknown";
-    public static String PHONE_MODEL 				= "unknown";
-    public static String ANDROID_VERSION            = "unknown";
-    // Where are the stack traces posted?
+	// Where are the stack traces posted?
 	public static String URL						= "http://trace.nullwire.com/collect/";
 	public static String TraceVersion				= "0.3.0";
 }

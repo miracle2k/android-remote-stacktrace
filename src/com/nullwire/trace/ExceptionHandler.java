@@ -27,7 +27,7 @@ Mads Kristiansen, mads.kristiansen@nullwire.com
 Glen Humphrey
 Evan Charlton
 Peter Hewitt
-*/
+ */
 
 package com.nullwire.trace;
 
@@ -52,11 +52,11 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.util.Log;
 
 public class ExceptionHandler {
-	
+
 	public static String TAG = "com.nullwire.trace.ExceptionsHandler";
-	
+
 	private static String[] stackTraceFileList = null;
-	
+
 	/**
 	 * Register handler for unhandled exceptions.
 	 * @param context
@@ -75,9 +75,9 @@ public class ExceptionHandler {
 			// Files dir for storing the stack traces
 			G.FILES_PATH = context.getFilesDir().getAbsolutePath();
 			// Device model
-            G.PHONE_MODEL = android.os.Build.MODEL;
-            // Android version
-            G.ANDROID_VERSION = android.os.Build.VERSION.RELEASE;
+			G.PHONE_MODEL = android.os.Build.MODEL;
+			// Android version
+			G.ANDROID_VERSION = android.os.Build.VERSION.RELEASE;
 		} catch (NameNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -87,13 +87,13 @@ public class ExceptionHandler {
 		Log.d(TAG, "APP_PACKAGE: " + G.APP_PACKAGE);
 		Log.d(TAG, "FILES_PATH: " + G.FILES_PATH);
 		Log.d(TAG, "URL: " + G.URL);
-		
+
 		boolean stackTracesFound = false;
 		// We'll return true if any stack traces were found
 		if ( searchForStackTraces().length > 0 ) {
 			stackTracesFound = true;
 		}
-		
+
 		new Thread() {
 			@Override
 			public void run() {
@@ -110,11 +110,11 @@ public class ExceptionHandler {
 							new DefaultExceptionHandler(currentHandler));
 				}
 			}
-       	}.start();
-		
+		}.start();
+
 		return stackTracesFound;
 	}
-	
+
 	/**
 	 * Register handler for unhandled exceptions.
 	 * @param context
@@ -128,7 +128,7 @@ public class ExceptionHandler {
 		register(context);
 	}
 
-	
+
 	/**
 	 * Search for stack trace files.
 	 * @return
@@ -148,7 +148,7 @@ public class ExceptionHandler {
 		}; 
 		return (stackTraceFileList = dir.list(filter));	
 	}
-	
+
 	/**
 	 * Look into the files folder to see if there are any "*.stacktrace" files.
 	 * If any are present, submit them to the trace server.
@@ -169,38 +169,38 @@ public class ExceptionHandler {
 					BufferedReader input =  new BufferedReader(new FileReader(filePath));
 					String line = null;
 					String androidVersion = null;
-	                String phoneModel = null;
-	                while (( line = input.readLine()) != null){
-                        if (androidVersion == null) {
-                            androidVersion = line;
-                            continue;
-                        }
-                        else if (phoneModel == null) {
-                            phoneModel = line;
-                            continue;
-                        }
-                        contents.append(line);
-			            contents.append(System.getProperty("line.separator"));
-			        }
-			        input.close();
-			        String stacktrace;
-			        stacktrace = contents.toString();
-			        Log.d(TAG, "Transmitting stack trace: " + stacktrace);
-			        // Transmit stack trace with POST request
+					String phoneModel = null;
+					while (( line = input.readLine()) != null){
+						if (androidVersion == null) {
+							androidVersion = line;
+							continue;
+						}
+						else if (phoneModel == null) {
+							phoneModel = line;
+							continue;
+						}
+						contents.append(line);
+						contents.append(System.getProperty("line.separator"));
+					}
+					input.close();
+					String stacktrace;
+					stacktrace = contents.toString();
+					Log.d(TAG, "Transmitting stack trace: " + stacktrace);
+					// Transmit stack trace with POST request
 					DefaultHttpClient httpClient = new DefaultHttpClient(); 
 					HttpPost httpPost = new HttpPost(G.URL);
 					List <NameValuePair> nvps = new ArrayList <NameValuePair>(); 
 					nvps.add(new BasicNameValuePair("package_name", G.APP_PACKAGE));
 					nvps.add(new BasicNameValuePair("package_version", version));
-                    nvps.add(new BasicNameValuePair("phone_model", phoneModel));
-                    nvps.add(new BasicNameValuePair("android_version", androidVersion));
-                    nvps.add(new BasicNameValuePair("stacktrace", stacktrace));
+					nvps.add(new BasicNameValuePair("phone_model", phoneModel));
+					nvps.add(new BasicNameValuePair("android_version", androidVersion));
+					nvps.add(new BasicNameValuePair("stacktrace", stacktrace));
 					httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8)); 
 					// We don't care about the response, so we just hope it went well and on with it
 					httpClient.execute(httpPost);					
 				}
 			}
-		} catch( Exception e ) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
 			try {
