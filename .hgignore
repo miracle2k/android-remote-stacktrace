@@ -1,4 +1,5 @@
 src/com/nullwire/trace/G.java
+local.properties
 i*\.class$
 bin/*
 trace.jar
