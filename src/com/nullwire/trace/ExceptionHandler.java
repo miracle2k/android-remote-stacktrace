@@ -88,11 +88,7 @@ public class ExceptionHandler {
 		Log.d(TAG, "FILES_PATH: " + G.FILES_PATH);
 		Log.d(TAG, "URL: " + G.URL);
 
-		boolean stackTracesFound = false;
-		// We'll return true if any stack traces were found
-		if ( searchForStackTraces().length > 0 ) {
-			stackTracesFound = true;
-		}
+		boolean stackTracesFound = (searchForStackTraces().length > 0);		
 
 		new Thread() {
 			@Override
