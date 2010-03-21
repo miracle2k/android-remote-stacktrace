@@ -115,7 +115,7 @@ public class ExceptionHandler {
 			// Android version
 			G.ANDROID_VERSION = android.os.Build.VERSION.RELEASE;
 		} catch (NameNotFoundException e) {
-			e.printStackTrace();
+			Log.e(G.TAG, "Error collecting trace information", e);
 		}
 
 		if (sVerbose) {
@@ -349,7 +349,7 @@ public class ExceptionHandler {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			Log.e(G.TAG, "Error submitting trace", e);
 		} finally {
 			try {
 				String[] list = searchForStackTraces();
@@ -358,7 +358,7 @@ public class ExceptionHandler {
 					file.delete();
 				}
 			} catch (Exception e) {
-				e.printStackTrace();
+				Log.e(G.TAG, "Error deleting trace files", e);
 			}
 		}
 	}

@@ -74,7 +74,7 @@ public class DefaultExceptionHandler implements UncaughtExceptionHandler {
 			bos.close();
 		} catch (Exception ebos) {
 			// Nothing much we can do about this - the game is over
-			ebos.printStackTrace();
+			Log.e(G.TAG, "Error saving exception stacktrace", e);
 		}
 		Log.d(G.TAG, result.toString());
 		//call original handler
