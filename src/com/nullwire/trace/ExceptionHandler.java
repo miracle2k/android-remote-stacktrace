@@ -83,6 +83,7 @@ public class ExceptionHandler {
 	private static boolean sVerbose = false;
 	private static int sMinDelay = 0;
 	private static Integer sTimeout = null;
+	private static boolean sSetupCalled = false;
 
 	public static interface Processor {
 		boolean beginSubmit();
@@ -95,9 +96,14 @@ public class ExceptionHandler {
 	 * unhandled exceptions.
 	 *
 	 * @param context
-	 * @param Processor
+	 * @param processor
 	 */
 	public static boolean setup(Context context, final Processor processor) {
+		// Make sure this is only called once.
+		if (sSetupCalled)
+			return false;
+		sSetupCalled = true;
+
 		Log.i(G.TAG, "Registering default exceptions handler");
 		// Get information about the Package
 		PackageManager pm = context.getPackageManager();
@@ -264,6 +270,13 @@ public class ExceptionHandler {
 	 * stop the submission from occurring.
 	 */
 	public static boolean hasStrackTraces() {
+		// Once setup has been called, always return false. The
+		// stack traces that now exists are essentially in the process
+		// of being submitted right now.
+		// This means that you can safely use this method in your
+		// Activity.onCreate() ->
+		if (sSetupCalled)
+			return false;
 		return (searchForStackTraces().length > 0);
 	}
 
