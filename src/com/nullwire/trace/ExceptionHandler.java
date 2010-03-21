@@ -78,6 +78,7 @@ public class ExceptionHandler {
 	private static String[] stackTraceFileList = null;
 
 	private static boolean sVerbose = false;
+	private static int sMinDelay = 0;
 
 	public static interface Processor {
 		boolean beginSubmit();
@@ -138,9 +139,25 @@ public class ExceptionHandler {
 			}
 			else {
 				AsyncTask<Object, Object, Object> task = new AsyncTask<Object, Object, Object>() {
+
+					private long mTimeStarted;
+
+					@Override
+					protected void onPreExecute() {
+						super.onPreExecute();
+						mTimeStarted = System.currentTimeMillis();
+					}
+
 					@Override
 					protected Object doInBackground(Object... params) {
 						submitStackTraces();
+
+						long rest = sMinDelay - (System.currentTimeMillis() - mTimeStarted);
+						if (rest > 0)
+							try {
+								Thread.sleep(rest);
+							} catch (InterruptedException e) { e.printStackTrace(); }
+
 						return null;
 					}
 
@@ -208,6 +225,20 @@ public class ExceptionHandler {
 	 */
 	public static void setVerbose(boolean verbose) {
 		sVerbose = verbose;
+	}
+
+	/**
+	 * When you are showing for example a dialog during submission,
+	 * there will be situations in which submission is done very
+	 * quickly the the dialog is not more than a flicker on the screen.
+	 *
+	 * This allows you to configure a minimum time that needs to pass
+	 * (in milliseconds) before the submitDone() callback is called.
+	 *
+	 * @param delay
+	 */
+	public static void setMinDelay(int delay) {
+		sMinDelay = delay;
 	}
 
 	/**

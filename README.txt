@@ -72,3 +72,8 @@ setTag() allows you to customize the log tag used by the library.
 
 setVerbose() tells the library to be a bit more verbose in terms of the
 log messages that are outputted.
+
+setMinDelay() allows you to specify a minimum time that needs to pass
+before the submitDone() callback is executed. Useful if you don't want
+UI elements that you have specifically shown to indicate trace submission
+to flicker-like disappear again.
