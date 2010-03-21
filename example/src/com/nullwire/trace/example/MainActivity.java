@@ -1,13 +1,14 @@
 package com.nullwire.trace.example;
 
-import com.nullwire.trace.ExceptionHandler;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
+
+import com.nullwire.trace.ExceptionHandler;
 
 public class MainActivity extends Activity {
 
@@ -24,24 +25,30 @@ public class MainActivity extends Activity {
         ExceptionHandler.setHttpTimeout(10000);
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
         	@Override
-			public boolean beginSubmit() {
-				showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
+			public boolean beginSubmit(Context context) {
+				((MainActivity)context).showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
 				return true;
 			}
 
 			@Override
-			public void submitDone() {
-				mExceptionSubmitDialog.cancel();
+			public void submitDone(Context context) {
+				((MainActivity)context).mExceptionSubmitDialog.cancel();
 			}
 
 			@Override
-			public void handlerInstalled() {
-				continueActivitySetup();
+			public void handlerInstalled(Context context) {
+				((MainActivity)context).continueActivitySetup();
 			}
 		});
     }
 
-    private void continueActivitySetup() {
+    @Override
+	protected void onDestroy() {
+    	ExceptionHandler.notifyContextGone(this);
+		super.onDestroy();
+	}
+
+	private void continueActivitySetup() {
     	findViewById(R.id.crash_button).setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {

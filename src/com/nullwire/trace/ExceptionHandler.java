@@ -53,7 +53,6 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.AsyncTask;
 import android.util.Log;
 
 /**
@@ -80,15 +79,16 @@ public class ExceptionHandler {
 
 	private static String[] stackTraceFileList = null;
 
+	private static ActivityAsyncTask<Context, Object, Object, Object> sTask;
 	private static boolean sVerbose = false;
 	private static int sMinDelay = 0;
 	private static Integer sTimeout = null;
 	private static boolean sSetupCalled = false;
 
 	public static interface Processor {
-		boolean beginSubmit();
-		void submitDone();
-		void handlerInstalled();
+		boolean beginSubmit(Context context);
+		void submitDone(Context context);
+		void handlerInstalled(Context context);
 	}
 
 	/**
@@ -100,8 +100,18 @@ public class ExceptionHandler {
 	 */
 	public static boolean setup(Context context, final Processor processor) {
 		// Make sure this is only called once.
-		if (sSetupCalled)
+		if (sSetupCalled) {
+			// Tell the task that it now has a new context.
+			if (sTask != null && !sTask.postProcessingDone())
+				sTask.connectTo(context);
+			else {
+				// We want to provide an API where we guarantee that the
+				// handlerInstalled callback will be called, for the user
+				// to continue processing.
+				processor.handlerInstalled(context);
+			}
 			return false;
+		}
 		sSetupCalled = true;
 
 		Log.i(G.TAG, "Registering default exceptions handler");
@@ -138,17 +148,17 @@ public class ExceptionHandler {
 		// can go straight to setting up the exception intercept.
 		if (!stackTracesFound) {
 			installHandler();
-			processor.handlerInstalled();
+			processor.handlerInstalled(context);
 		}
 		// Otherwise, we need to submit the existing stacktraces.
 		else {
-			boolean proceed = processor.beginSubmit();
+			boolean proceed = processor.beginSubmit(context);
 			if (!proceed) {
 				installHandler();
-				processor.handlerInstalled();
+				processor.handlerInstalled(context);
 			}
 			else {
-				AsyncTask<Object, Object, Object> task = new AsyncTask<Object, Object, Object>() {
+				sTask = new ActivityAsyncTask<Context, Object, Object, Object>(context) {
 
 					private long mTimeStarted;
 
@@ -175,18 +185,17 @@ public class ExceptionHandler {
 					protected void onCancelled() {
 						super.onCancelled();
 						installHandler();
-						processor.handlerInstalled();
+						processor.handlerInstalled(mWrapped);
 					}
 
 					@Override
-					protected void onPostExecute(Object result) {
-						super.onPostExecute(result);
-						processor.submitDone();
+					protected void processPostExecute(Object result) {
+						processor.submitDone(mWrapped);
 						installHandler();
-						processor.handlerInstalled();
+						processor.handlerInstalled(mWrapped);
 					}
 				};
-				task.execute();
+				sTask.execute();
 			}
 		}
 
@@ -203,10 +212,28 @@ public class ExceptionHandler {
 	 */
 	public static boolean setup(Context context) {
 		return setup(context, new Processor() {
-			public boolean beginSubmit() { return true; }
-			public void submitDone() {}
-			public void handlerInstalled() {}
+			public boolean beginSubmit(Context context) { return true; }
+			public void submitDone(Context context) {}
+			public void handlerInstalled(Context context) {}
 		});
+	}
+
+	/**
+	 * If your "Processor" depends on a specific context/activity, call
+	 * this method at the appropriate time, for example in your activity
+	 * "onDestroy". This will ensure that we'll hold off executing
+	 * "submitDone" or "handlerInstalled" until setup() is called again
+	 * with a new context.
+	 *
+	 * @param context
+	 */
+	public static void notifyContextGone(Context context) {
+		if (sTask == null)
+			return;
+		if (sTask.mWrapped != context)
+			throw new IllegalStateException();
+
+		sTask.connectTo(null);
 	}
 
 	/**
