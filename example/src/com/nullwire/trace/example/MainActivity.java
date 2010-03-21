@@ -21,6 +21,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.main);
 
         ExceptionHandler.setMinDelay(4000);
+        ExceptionHandler.setHttpTimeout(10000);
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
         	@Override
 			public boolean beginSubmit() {

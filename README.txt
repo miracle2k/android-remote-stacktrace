@@ -77,3 +77,5 @@ setMinDelay() allows you to specify a minimum time that needs to pass
 before the submitDone() callback is executed. Useful if you don't want
 UI elements that you have specifically shown to indicate trace submission
 to flicker-like disappear again.
+
+setHttpTimeout() to change the default timeout for the HTTP submission.

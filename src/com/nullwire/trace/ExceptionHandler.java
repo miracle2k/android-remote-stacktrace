@@ -44,6 +44,9 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
 
 import android.content.Context;
@@ -79,6 +82,7 @@ public class ExceptionHandler {
 
 	private static boolean sVerbose = false;
 	private static int sMinDelay = 0;
+	private static Integer sTimeout = null;
 
 	public static interface Processor {
 		boolean beginSubmit();
@@ -242,6 +246,17 @@ public class ExceptionHandler {
 	}
 
 	/**
+	 * Configure a timeout to use when submitting stack traces.
+	 *
+	 * If not set the default timeout will be used.
+	 *
+	 * @param timeout
+	 */
+	public static void setHttpTimeout(Integer timeout) {
+		sTimeout = timeout;
+	}
+
+	/**
 	 * Return true if there are stacktraces that need to be submitted.
 	 *
 	 * Useful for example if you would like to ask the user's permission
@@ -310,7 +325,17 @@ public class ExceptionHandler {
 					stacktrace = contents.toString();
 					Log.d(G.TAG, "Transmitting stack trace: " + stacktrace);
 					// Transmit stack trace with POST request
-					DefaultHttpClient httpClient = new DefaultHttpClient();
+					DefaultHttpClient httpClient = null;
+					if (sTimeout != null) {
+						HttpParams params = new BasicHttpParams();
+						HttpConnectionParams.setConnectionTimeout(params, sTimeout);
+						HttpConnectionParams.setSoTimeout(params, sTimeout);
+						httpClient = new DefaultHttpClient(params);
+					}
+					else {
+						// Simply use the default timeout
+						httpClient = new DefaultHttpClient();
+					}
 					HttpPost httpPost = new HttpPost(G.URL);
 					List <NameValuePair> nvps = new ArrayList <NameValuePair>();
 					nvps.add(new BasicNameValuePair("package_name", G.APP_PACKAGE));
