@@ -77,6 +77,8 @@ public class ExceptionHandler {
 
 	private static String[] stackTraceFileList = null;
 
+	private static boolean sVerbose = false;
+
 	public static interface Processor {
 		boolean beginSubmit();
 		void submitDone();
@@ -111,11 +113,13 @@ public class ExceptionHandler {
 			e.printStackTrace();
 		}
 
-		Log.i(G.TAG, "TRACE_VERSION: " + G.TraceVersion);
-		Log.d(G.TAG, "APP_VERSION: " + G.APP_VERSION);
-		Log.d(G.TAG, "APP_PACKAGE: " + G.APP_PACKAGE);
-		Log.d(G.TAG, "FILES_PATH: " + G.FILES_PATH);
-		Log.d(G.TAG, "URL: " + G.URL);
+		if (sVerbose) {
+			Log.i(G.TAG, "TRACE_VERSION: " + G.TraceVersion);
+			Log.d(G.TAG, "APP_VERSION: " + G.APP_VERSION);
+			Log.d(G.TAG, "APP_PACKAGE: " + G.APP_PACKAGE);
+			Log.d(G.TAG, "FILES_PATH: " + G.FILES_PATH);
+			Log.d(G.TAG, "URL: " + G.URL);
+		}
 
 		boolean stackTracesFound = (searchForStackTraces().length > 0);
 
@@ -180,13 +184,30 @@ public class ExceptionHandler {
 
 	/**
 	 * Set a custom URL to be used when submitting stracktraces.
+	 *
+	 * @param url
 	 */
 	public static void setUrl(String url) {
 		G.URL = url;
 	}
 
+	/**
+	 * Set a custom tag used for log messages outputted by this lib.
+	 *
+	 * @param tag
+	 */
 	public static void setTag(String tag) {
 		G.TAG = tag;
+	}
+
+	/**
+	 * Tell us to be more verbose with respect to the log messages we
+	 * output.
+	 *
+	 * @param verbose
+	 */
+	public static void setVerbose(boolean verbose) {
+		sVerbose = verbose;
 	}
 
 	/**
