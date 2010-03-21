@@ -378,9 +378,8 @@ public class ExceptionHandler {
 
 	private static void installHandler() {
 		UncaughtExceptionHandler currentHandler = Thread.getDefaultUncaughtExceptionHandler();
-		if (currentHandler != null) {
+		if (currentHandler != null && sVerbose)
 			Log.d(G.TAG, "current handler class="+currentHandler.getClass().getName());
-		}
 		// don't register again if already registered
 		if (!(currentHandler instanceof DefaultExceptionHandler)) {
 			// Register default exceptions handler
