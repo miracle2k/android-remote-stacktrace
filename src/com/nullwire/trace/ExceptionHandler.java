@@ -22,7 +22,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
-Contributors: 
+Contributors:
 Mads Kristiansen, mads.kristiansen@nullwire.com
 Glen Humphrey
 Evan Charlton
@@ -35,6 +35,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FilenameFilter;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,19 +50,49 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.AsyncTask;
 import android.util.Log;
 
+/**
+ * Usage:
+ *
+ * 	    ExceptionHandler.setUrl('http://myserver.com/bugs')
+ *      ExceptionHandler.setup(new ExceptionHandler.Processor() {
+ *          boolean beginSubmit() {
+ *          	showDialog(DIALOG_SUBMITTING_CRASH);
+ *          	return true;
+ *          }
+ *
+ *          void submitDone() {
+ *          	cancelDialog(DIALOG_SUBMITTING_CRASH);
+ *          	return true;
+ *          }
+ *
+ *          void handlerInstalled() {
+ *          	continueWithAppSetup();
+ *          }
+ *      });
+ */
 public class ExceptionHandler {
 
 	public static String TAG = "com.nullwire.trace.ExceptionsHandler";
 
 	private static String[] stackTraceFileList = null;
 
+	public static interface Processor {
+		boolean beginSubmit();
+		void submitDone();
+		void handlerInstalled();
+	}
+
 	/**
-	 * Register handler for unhandled exceptions.
+	 * Submit any saved stracktraces, then setup the handler for
+	 * unhandled exceptions.
+	 *
 	 * @param context
+	 * @param Processor
 	 */
-	public static boolean register(Context context) {
+	public static boolean setup(Context context, final Processor processor) {
 		Log.i(TAG, "Registering default exceptions handler");
 		// Get information about the Package
 		PackageManager pm = context.getPackageManager();
@@ -88,42 +119,84 @@ public class ExceptionHandler {
 		Log.d(TAG, "FILES_PATH: " + G.FILES_PATH);
 		Log.d(TAG, "URL: " + G.URL);
 
-		boolean stackTracesFound = (searchForStackTraces().length > 0);		
+		boolean stackTracesFound = (searchForStackTraces().length > 0);
 
-		new Thread() {
-			@Override
-			public void run() {
-				// First of all transmit any stack traces that may be lying around
-				submitStackTraces();
-				UncaughtExceptionHandler currentHandler = Thread.getDefaultUncaughtExceptionHandler();
-				if (currentHandler != null) {
-					Log.d(TAG, "current handler class="+currentHandler.getClass().getName());
-				}	
-				// don't register again if already registered
-				if (!(currentHandler instanceof DefaultExceptionHandler)) {
-					// Register default exceptions handler
-					Thread.setDefaultUncaughtExceptionHandler(
-							new DefaultExceptionHandler(currentHandler));
-				}
+		// If no traces exist, we don't need to submit anything, and we
+		// can go straight to setting up the exception intercept.
+		if (!stackTracesFound) {
+			installHandler();
+			processor.handlerInstalled();
+		}
+		// Otherwise, we need to submit the existing stacktraces.
+		else {
+			boolean proceed = processor.beginSubmit();
+			if (!proceed) {
+				installHandler();
+				processor.handlerInstalled();
 			}
-		}.start();
+			else {
+				AsyncTask<Object, Object, Object> task = new AsyncTask<Object, Object, Object>() {
+					@Override
+					protected Object doInBackground(Object... params) {
+						submitStackTraces();
+						return null;
+					}
+
+					@Override
+					protected void onCancelled() {
+						super.onCancelled();
+						installHandler();
+						processor.handlerInstalled();
+					}
+
+					@Override
+					protected void onPostExecute(Object result) {
+						super.onPostExecute(result);
+						processor.submitDone();
+						installHandler();
+						processor.handlerInstalled();
+					}
+				};
+				task.execute();
+			}
+		}
 
 		return stackTracesFound;
 	}
 
 	/**
-	 * Register handler for unhandled exceptions.
+	 * Submit any saved stacktraces, then setup the handler for
+	 * unhandled exceptions.
+	 *
+	 * Simplified version that uses a default processor.
+	 *
 	 * @param context
-	 * @param Url
 	 */
-	public static void register(Context context, String url) {
-		Log.i(TAG, "Registering default exceptions handler: " + url);
-		// Use custom URL
-		G.URL = url;
-		// Call the default register method
-		register(context);
+	public static boolean setup(Context context) {
+		return setup(context, new Processor() {
+			public boolean beginSubmit() { return true; }
+			public void submitDone() {}
+			public void handlerInstalled() {}
+		});
 	}
 
+	/**
+	 * Set a custom URL to be used when submitting stracktraces.
+	 */
+	public static void setUrl(String url) {
+		G.URL = url;
+	}
+
+	/**
+	 * Return true if there are stacktraces that need to be submitted.
+	 *
+	 * Useful for example if you would like to ask the user's permission
+	 * before submitting. You can then use Processor.beginSubmit() to
+	 * stop the submission from occurring.
+	 */
+	public static boolean hasStrackTraces() {
+		return (searchForStackTraces().length > 0);
+	}
 
 	/**
 	 * Search for stack trace files.
@@ -137,12 +210,12 @@ public class ExceptionHandler {
 		// Try to create the files folder if it doesn't exist
 		dir.mkdir();
 		// Filter for ".stacktrace" files
-		FilenameFilter filter = new FilenameFilter() { 
+		FilenameFilter filter = new FilenameFilter() {
 			public boolean accept(File dir, String name) {
-				return name.endsWith(".stacktrace"); 
-			} 
-		}; 
-		return (stackTraceFileList = dir.list(filter));	
+				return name.endsWith(".stacktrace");
+			}
+		};
+		return (stackTraceFileList = dir.list(filter));
 	}
 
 	/**
@@ -183,17 +256,17 @@ public class ExceptionHandler {
 					stacktrace = contents.toString();
 					Log.d(TAG, "Transmitting stack trace: " + stacktrace);
 					// Transmit stack trace with POST request
-					DefaultHttpClient httpClient = new DefaultHttpClient(); 
+					DefaultHttpClient httpClient = new DefaultHttpClient();
 					HttpPost httpPost = new HttpPost(G.URL);
-					List <NameValuePair> nvps = new ArrayList <NameValuePair>(); 
+					List <NameValuePair> nvps = new ArrayList <NameValuePair>();
 					nvps.add(new BasicNameValuePair("package_name", G.APP_PACKAGE));
 					nvps.add(new BasicNameValuePair("package_version", version));
 					nvps.add(new BasicNameValuePair("phone_model", phoneModel));
 					nvps.add(new BasicNameValuePair("android_version", androidVersion));
 					nvps.add(new BasicNameValuePair("stacktrace", stacktrace));
-					httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8)); 
+					httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8));
 					// We don't care about the response, so we just hope it went well and on with it
-					httpClient.execute(httpPost);					
+					httpClient.execute(httpPost);
 				}
 			}
 		} catch (Exception e) {
@@ -208,6 +281,19 @@ public class ExceptionHandler {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
+		}
+	}
+
+	private static void installHandler() {
+		UncaughtExceptionHandler currentHandler = Thread.getDefaultUncaughtExceptionHandler();
+		if (currentHandler != null) {
+			Log.d(TAG, "current handler class="+currentHandler.getClass().getName());
+		}
+		// don't register again if already registered
+		if (!(currentHandler instanceof DefaultExceptionHandler)) {
+			// Register default exceptions handler
+			Thread.setDefaultUncaughtExceptionHandler(
+					new DefaultExceptionHandler(currentHandler));
 		}
 	}
 }
