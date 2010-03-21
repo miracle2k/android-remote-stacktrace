@@ -6,4 +6,5 @@ trace.jar
 MANIFEST.MF
 .DS_Store
 server/site.db
+example/gen/*
 BRANCH_TODO
