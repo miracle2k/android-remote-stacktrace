@@ -61,10 +61,64 @@ see a blank screen, we are showing a dialog. You probably want to make
 this dialog have no buttons and set "cancelable" to false.
 
 
+Asking the user
+---------------
+
+You may want to ask the user if he agrees with submitting the trace. 
+Due to the asynchronous nature of the Android UI there isn't really 
+a good way to do this solely inside the custom Processor. Instead,
+you need to do something along these lines:
+
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        if (ExceptionHandler.hasStrackTraces()) {
+            askUserIfWeMaySubmit();
+        }
+        else {
+            installHandlerAndGo(false);
+        }
+    }
+
+    private void askUserPermissionResult(boolean permissionGranted) {
+        installHandlerAndGo(true);
+    }
+
+    private void installHandlerAndGo(boolean doSubmit) {
+        ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
+            @Override
+            public boolean beginSubmit() {
+                if (!doSubmit)
+                    return false;
+               
+                showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
+                return true;
+            }
+
+            @Override
+            public void submitDone() {
+                mExceptionSubmitDialog.cancel();
+            }
+
+            @Override
+            public void handlerInstalled() {
+                buildUserInterface();
+            }
+        }));
+    }
+
+
 Customizations
 --------------
 
-Those methods need to be run before the ExceptionHandler.setup() call.
+The following methods need to be run before the ExceptionHandler.setup() 
+call, for example:
+
+    ExceptionHandler.setUrl('http://my.site.com/bugs');
+    ExceptionHander.setup(this);
+
+The following options are currently available:
 
 setUrl() allows you customize the url traces are submitted to.
 
