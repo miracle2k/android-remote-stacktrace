@@ -3,7 +3,6 @@ package com.nullwire.trace.example;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -25,26 +24,26 @@ public class MainActivity extends Activity {
         ExceptionHandler.setHttpTimeout(10000);
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
         	@Override
-			public boolean beginSubmit(Context context) {
-				((MainActivity)context).showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
+			public boolean beginSubmit() {
+				showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
 				return true;
 			}
 
 			@Override
-			public void submitDone(Context context) {
-				((MainActivity)context).mExceptionSubmitDialog.cancel();
+			public void submitDone() {
+				mExceptionSubmitDialog.cancel();
 			}
 
 			@Override
-			public void handlerInstalled(Context context) {
-				((MainActivity)context).continueActivitySetup();
+			public void handlerInstalled() {
+				continueActivitySetup();
 			}
 		});
     }
 
     @Override
 	protected void onDestroy() {
-    	ExceptionHandler.notifyContextGone(this);
+    	ExceptionHandler.notifyContextGone();
 		super.onDestroy();
 	}
 

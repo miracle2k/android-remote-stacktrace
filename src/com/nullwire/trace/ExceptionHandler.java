@@ -79,16 +79,16 @@ public class ExceptionHandler {
 
 	private static String[] stackTraceFileList = null;
 
-	private static ActivityAsyncTask<Context, Object, Object, Object> sTask;
+	private static ActivityAsyncTask<Processor, Object, Object, Object> sTask;
 	private static boolean sVerbose = false;
 	private static int sMinDelay = 0;
 	private static Integer sTimeout = null;
 	private static boolean sSetupCalled = false;
 
 	public static interface Processor {
-		boolean beginSubmit(Context context);
-		void submitDone(Context context);
-		void handlerInstalled(Context context);
+		boolean beginSubmit();
+		void submitDone();
+		void handlerInstalled();
 	}
 
 	/**
@@ -103,12 +103,12 @@ public class ExceptionHandler {
 		if (sSetupCalled) {
 			// Tell the task that it now has a new context.
 			if (sTask != null && !sTask.postProcessingDone())
-				sTask.connectTo(context);
+				sTask.connectTo(processor);
 			else {
 				// We want to provide an API where we guarantee that the
 				// handlerInstalled callback will be called, for the user
 				// to continue processing.
-				processor.handlerInstalled(context);
+				processor.handlerInstalled();
 			}
 			return false;
 		}
@@ -148,17 +148,17 @@ public class ExceptionHandler {
 		// can go straight to setting up the exception intercept.
 		if (!stackTracesFound) {
 			installHandler();
-			processor.handlerInstalled(context);
+			processor.handlerInstalled();
 		}
 		// Otherwise, we need to submit the existing stacktraces.
 		else {
-			boolean proceed = processor.beginSubmit(context);
+			boolean proceed = processor.beginSubmit();
 			if (!proceed) {
 				installHandler();
-				processor.handlerInstalled(context);
+				processor.handlerInstalled();
 			}
 			else {
-				sTask = new ActivityAsyncTask<Context, Object, Object, Object>(context) {
+				sTask = new ActivityAsyncTask<Processor, Object, Object, Object>(processor) {
 
 					private long mTimeStarted;
 
@@ -185,14 +185,14 @@ public class ExceptionHandler {
 					protected void onCancelled() {
 						super.onCancelled();
 						installHandler();
-						processor.handlerInstalled(mWrapped);
+						mWrapped.handlerInstalled();
 					}
 
 					@Override
 					protected void processPostExecute(Object result) {
-						processor.submitDone(mWrapped);
+						mWrapped.submitDone();
 						installHandler();
-						processor.handlerInstalled(mWrapped);
+						mWrapped.handlerInstalled();
 					}
 				};
 				sTask.execute();
@@ -212,9 +212,9 @@ public class ExceptionHandler {
 	 */
 	public static boolean setup(Context context) {
 		return setup(context, new Processor() {
-			public boolean beginSubmit(Context context) { return true; }
-			public void submitDone(Context context) {}
-			public void handlerInstalled(Context context) {}
+			public boolean beginSubmit() { return true; }
+			public void submitDone() {}
+			public void handlerInstalled() {}
 		});
 	}
 
@@ -227,11 +227,9 @@ public class ExceptionHandler {
 	 *
 	 * @param context
 	 */
-	public static void notifyContextGone(Context context) {
+	public static void notifyContextGone() {
 		if (sTask == null)
 			return;
-		if (sTask.mWrapped != context)
-			throw new IllegalStateException();
 
 		sTask.connectTo(null);
 	}

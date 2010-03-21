@@ -33,18 +33,18 @@ Custom processor
 
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
             @Override
-            public boolean beginSubmit(Context context) {
+            public boolean beginSubmit() {
                 showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
                 return true;
             }
 
             @Override
-            public void submitDone(Context context) {
+            public void submitDone() {
                 mExceptionSubmitDialog.cancel();
             }
 
             @Override
-            public void handlerInstalled(Context context) {
+            public void handlerInstalled() {
                 buildUserInterface();
             }
         }));
@@ -88,7 +88,7 @@ you need to do something along these lines:
     private void installHandlerAndGo(boolean doSubmit) {
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
             @Override
-            public boolean beginSubmit(Context context) {
+            public boolean beginSubmit() {
                 if (!doSubmit)
                     return false;
                
@@ -97,12 +97,12 @@ you need to do something along these lines:
             }
 
             @Override
-            public void submitDone(Context context) {
+            public void submitDone() {
                 mExceptionSubmitDialog.cancel();
             }
 
             @Override
-            public void handlerInstalled(Context context) {
+            public void handlerInstalled() {
                 buildUserInterface();
             }
         }));
