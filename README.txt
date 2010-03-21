@@ -34,7 +34,7 @@ Custom processor
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
             @Override
             public boolean beginSubmit() {
-                showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
+                mExceptionSubmitDialog = AlertDialog.Builder().create();
                 return true;
             }
 
@@ -107,6 +107,51 @@ you need to do something along these lines:
             }
         }));
     }
+
+
+Handling orientation change
+---------------------------
+
+What happens if the user changes the orientation of the device while the 
+thread sending out the stack traces is still active?
+
+Well, the exception handler ensures that no second thread will be started,
+and you can rely on the handlerInstalled() callback to be run for every setup()
+call, just as if the handler was installed for the first time. 
+
+However, notice a couple of things:
+
+ * Our efforts of deferring as much code as possible until after the handler
+   is installed by using the handlerInstalled() callback are mostly bypassed.
+   The second instance of the activity will have handlerInstalled() executed
+   right away, while the submission thread from the first instance is still
+   waiting to complete; only then the exception hook will be registered.
+
+ * Note that the dialog we display in the previous example is manually created;
+   The Activity's showDialog() is not used. This is because showDialog() would
+   automatically recreate the dialog upon orientation change, while the 
+   submitDone() callback from the first setup() call still references the first
+   dialog object, from the first Activity instance.
+
+Those are simple to solve. The class already does some work to ensure that 
+when setup() is called a second time before the submission thread has finished,
+that subsequently the new processor object from the current setup() call will
+be used by the thread. This already ensures that in many cases, the correct 
+dialog instance would be referenced if you were to use showDialog(). 
+
+There is however an edge case: It is entirely possible that the submission
+thread finishes **before** the new is created, but after the state of the
+previous activity has been saved (including the active dialogs). To prevent
+this from happening, you need to call notifyContextGone() in Activity.onDestroy():
+
+    @Override
+    protected void onDestroy() {
+        ExceptionHandler.notifyContextGone();
+        super.onDestroy();
+    }
+
+This will ensure that ExceptionHandler holds off executing the submitDone()
+callback until the next time setup() is called.
 
 
 Customizations
