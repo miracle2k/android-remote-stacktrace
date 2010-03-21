@@ -22,7 +22,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
-Contributors: 
+Contributors:
 Mads Kristiansen, mads.kristiansen@nullwire.com
 Glen Humphrey
 Evan Charlton
@@ -45,8 +45,6 @@ public class DefaultExceptionHandler implements UncaughtExceptionHandler {
 
 	private UncaughtExceptionHandler defaultExceptionHandler;
 
-	private static final String TAG = "UNHANDLED_EXCEPTION";
-
 	// constructor
 	public DefaultExceptionHandler(UncaughtExceptionHandler pDefaultExceptionHandler)
 	{
@@ -62,10 +60,10 @@ public class DefaultExceptionHandler implements UncaughtExceptionHandler {
 		try {
 			// Random number to avoid duplicate files
 			Random generator = new Random();
-			int random = generator.nextInt(99999);    	
+			int random = generator.nextInt(99999);
 			// Embed version in stacktrace filename
 			String filename = G.APP_VERSION+"-"+Integer.toString(random);
-			Log.d(TAG, "Writing unhandled exception to: " + G.FILES_PATH+"/"+filename+".stacktrace");
+			Log.d(G.TAG, "Writing unhandled exception to: " + G.FILES_PATH+"/"+filename+".stacktrace");
 			// Write the stacktrace to disk
 			BufferedWriter bos = new BufferedWriter(new FileWriter(G.FILES_PATH+"/"+filename+".stacktrace"));
 			bos.write(G.ANDROID_VERSION + "\n");
@@ -78,8 +76,8 @@ public class DefaultExceptionHandler implements UncaughtExceptionHandler {
 			// Nothing much we can do about this - the game is over
 			ebos.printStackTrace();
 		}
-		Log.d(TAG, result.toString());	    
-		//call original handler  
-		defaultExceptionHandler.uncaughtException(t, e);        
+		Log.d(G.TAG, result.toString());
+		//call original handler
+		defaultExceptionHandler.uncaughtException(t, e);
 	}
 }

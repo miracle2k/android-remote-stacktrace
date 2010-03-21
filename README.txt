@@ -67,3 +67,5 @@ Customizations
 Those methods need to be run before the ExceptionHandler.setup() call.
 
 setUrl() allows you customize the url traces are submitted to.
+
+setTag() allows you to customize the log tag used by the library.

@@ -75,8 +75,6 @@ import android.util.Log;
  */
 public class ExceptionHandler {
 
-	public static String TAG = "com.nullwire.trace.ExceptionsHandler";
-
 	private static String[] stackTraceFileList = null;
 
 	public static interface Processor {
@@ -93,7 +91,7 @@ public class ExceptionHandler {
 	 * @param Processor
 	 */
 	public static boolean setup(Context context, final Processor processor) {
-		Log.i(TAG, "Registering default exceptions handler");
+		Log.i(G.TAG, "Registering default exceptions handler");
 		// Get information about the Package
 		PackageManager pm = context.getPackageManager();
 		try {
@@ -113,11 +111,11 @@ public class ExceptionHandler {
 			e.printStackTrace();
 		}
 
-		Log.i(TAG, "TRACE_VERSION: " + G.TraceVersion);
-		Log.d(TAG, "APP_VERSION: " + G.APP_VERSION);
-		Log.d(TAG, "APP_PACKAGE: " + G.APP_PACKAGE);
-		Log.d(TAG, "FILES_PATH: " + G.FILES_PATH);
-		Log.d(TAG, "URL: " + G.URL);
+		Log.i(G.TAG, "TRACE_VERSION: " + G.TraceVersion);
+		Log.d(G.TAG, "APP_VERSION: " + G.APP_VERSION);
+		Log.d(G.TAG, "APP_PACKAGE: " + G.APP_PACKAGE);
+		Log.d(G.TAG, "FILES_PATH: " + G.FILES_PATH);
+		Log.d(G.TAG, "URL: " + G.URL);
 
 		boolean stackTracesFound = (searchForStackTraces().length > 0);
 
@@ -187,6 +185,10 @@ public class ExceptionHandler {
 		G.URL = url;
 	}
 
+	public static void setTag(String tag) {
+		G.TAG = tag;
+	}
+
 	/**
 	 * Return true if there are stacktraces that need to be submitted.
 	 *
@@ -224,15 +226,15 @@ public class ExceptionHandler {
 	 */
 	public static void submitStackTraces() {
 		try {
-			Log.d(TAG, "Looking for exceptions in: " + G.FILES_PATH);
+			Log.d(G.TAG, "Looking for exceptions in: " + G.FILES_PATH);
 			String[] list = searchForStackTraces();
 			if ( list != null && list.length > 0 ) {
-				Log.d(TAG, "Found "+list.length+" stacktrace(s)");
+				Log.d(G.TAG, "Found "+list.length+" stacktrace(s)");
 				for (int i=0; i < list.length; i++) {
 					String filePath = G.FILES_PATH+"/"+list[i];
 					// Extract the version from the filename: "packagename-version-...."
 					String version = list[i].split("-")[0];
-					Log.d(TAG, "Stacktrace in file '"+filePath+"' belongs to version " + version);
+					Log.d(G.TAG, "Stacktrace in file '"+filePath+"' belongs to version " + version);
 					// Read contents of stacktrace
 					StringBuilder contents = new StringBuilder();
 					BufferedReader input =  new BufferedReader(new FileReader(filePath));
@@ -254,7 +256,7 @@ public class ExceptionHandler {
 					input.close();
 					String stacktrace;
 					stacktrace = contents.toString();
-					Log.d(TAG, "Transmitting stack trace: " + stacktrace);
+					Log.d(G.TAG, "Transmitting stack trace: " + stacktrace);
 					// Transmit stack trace with POST request
 					DefaultHttpClient httpClient = new DefaultHttpClient();
 					HttpPost httpPost = new HttpPost(G.URL);
@@ -287,7 +289,7 @@ public class ExceptionHandler {
 	private static void installHandler() {
 		UncaughtExceptionHandler currentHandler = Thread.getDefaultUncaughtExceptionHandler();
 		if (currentHandler != null) {
-			Log.d(TAG, "current handler class="+currentHandler.getClass().getName());
+			Log.d(G.TAG, "current handler class="+currentHandler.getClass().getName());
 		}
 		// don't register again if already registered
 		if (!(currentHandler instanceof DefaultExceptionHandler)) {
