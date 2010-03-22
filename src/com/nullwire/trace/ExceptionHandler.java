@@ -102,8 +102,15 @@ public class ExceptionHandler {
 		// Make sure this is only called once.
 		if (sSetupCalled) {
 			// Tell the task that it now has a new context.
-			if (sTask != null && !sTask.postProcessingDone())
+			if (sTask != null && !sTask.postProcessingDone()) {
+				// We don't want to force the user to call our
+				// notifyContextGone() if he doesn't care about that
+				// functionality anyway, so in order to avoid the
+				// InvalidStateException, ensure first that we are
+				// disconnected.
+				sTask.connectTo(null);
 				sTask.connectTo(processor);
+			}
 			else {
 				// We want to provide an API where we guarantee that the
 				// handlerInstalled callback will be called, for the user
