@@ -178,3 +178,12 @@ UI elements that you have specifically shown to indicate trace submission
 to flicker-like disappear again.
 
 setHttpTimeout() to change the default timeout for the HTTP submission.
+
+
+Building
+========
+
+Copy "local.properties.template" to "local.properties", and edit it to
+set the correct "lib.dir" path to your Android SDK platform. Then run:
+
+    $ ant build
