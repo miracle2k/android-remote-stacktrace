@@ -56,7 +56,7 @@ callback. This means we can be sure that any exceptions occuring there
 will be caught, and a trace be saved.
 
 Further, to ensure that in case trace submission takes a bit longer 
-(maybe the device is on a bad mobile connection), the user doesn't just
+(maybe the device is on a bad mobile connection) the user doesn't just
 see a blank screen, we are showing a dialog. You probably want to make
 this dialog have no buttons and set "cancelable" to false.
 
