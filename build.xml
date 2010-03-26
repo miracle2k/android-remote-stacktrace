@@ -57,7 +57,7 @@ Peter Hewitt
   <target name="compile">
     <mkdir dir="${build.dir}" />
     <mkdir dir="${classes.dir}" />
-    <javac srcdir="." destdir="${classes.dir}" classpathref="classpath" />
+    <javac srcdir="src" destdir="${classes.dir}" classpathref="classpath" />
   </target>
   
   <target name="jar" depends="compile">
