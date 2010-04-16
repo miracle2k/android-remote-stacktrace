@@ -1,0 +1,17 @@
+I've had a number of cases were the stacktrace wasn't enough to track down the
+problem - a log capture would have helped. Actually querying the system log
+requires a permission and running a subprocess, which is probably not want we
+want to do.
+But we could provide a wrapper around the log class which caches the last X
+messages and can then include them in the trace.
+
+Currently, the exception handler is only installed after the existing traces
+have been submitted. As a result, you either have to wait for that to have
+happened before starting up, or risking potentially to miss an Exception that
+might occur in the meantime.
+Seems like there isn't any reason why we can't read all the traces into memory,
+delete them from the disk, then install the handler right away and only at this
+point begin with submitting the trace in the background.
+Due to the way the "Processor" interface is currently setup, this could actually
+be implemented as an option. The handlerInstalled() callback would then just be
+called earlier, or later, depending on the setting.
