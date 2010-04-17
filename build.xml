@@ -33,7 +33,6 @@ Peter Hewitt
   <property file="local.properties" />
 
   <property name="version.num" value="0.3.0" />
-  <buildnumber file="build.num" />
   <property name="build.dir" value="./build"/>
   <property name="classes.dir" 	value="${build.dir}/classes"/>
 
@@ -67,7 +66,7 @@ Peter Hewitt
      <manifest file="MANIFEST.MF">
         <attribute name="Built-By" value="${user.name}" />
         <attribute name="Implementation-Version" 
-                     value="${version.num}-b${build.number}"/> 
+                     value="${version.num}"/> 
     </manifest>
 
     <jar destfile="trace.jar"
