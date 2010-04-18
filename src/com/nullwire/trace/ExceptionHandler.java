@@ -460,15 +460,15 @@ public class ExceptionHandler {
 				Log.d(G.TAG, "Transmitting stack trace: " + stacktrace);
 				// Transmit stack trace with POST request
 				DefaultHttpClient  httpClient = new DefaultHttpClient();
+				HttpParams params = httpClient.getParams();
+				// Lighty 1.4 has trouble with the expect header
+				// (http://redmine.lighttpd.net/issues/1017), and a
+				// potential workaround is only included in 1.4.21
+				// (http://www.lighttpd.net/2009/2/16/1-4-21-yes-we-can-do-another-release).
+				HttpProtocolParams.setUseExpectContinue(params, false);
 				if (sTimeout != null) {
-					HttpParams params = httpClient.getParams();
 					HttpConnectionParams.setConnectionTimeout(params, sTimeout);
 					HttpConnectionParams.setSoTimeout(params, sTimeout);
-					// Lighty 1.4 has trouble with the expect header
-					// (http://redmine.lighttpd.net/issues/1017), and a
-					// potential workaround is only included in 1.4.21
-					// (http://www.lighttpd.net/2009/2/16/1-4-21-yes-we-can-do-another-release).
-					HttpProtocolParams.setUseExpectContinue(params, false);
 				}
 				HttpPost httpPost = new HttpPost(G.URL);
 				List <NameValuePair> nvps = new ArrayList <NameValuePair>();
