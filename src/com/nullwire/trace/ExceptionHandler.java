@@ -46,7 +46,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
@@ -459,16 +458,11 @@ public class ExceptionHandler {
 
 				Log.d(G.TAG, "Transmitting stack trace: " + stacktrace);
 				// Transmit stack trace with POST request
-				DefaultHttpClient httpClient = null;
+				DefaultHttpClient  httpClient = new DefaultHttpClient();
 				if (sTimeout != null) {
-					HttpParams params = new BasicHttpParams();
+					HttpParams params = httpClient.getParams();
 					HttpConnectionParams.setConnectionTimeout(params, sTimeout);
 					HttpConnectionParams.setSoTimeout(params, sTimeout);
-					httpClient = new DefaultHttpClient(params);
-				}
-				else {
-					// Simply use the default timeout
-					httpClient = new DefaultHttpClient();
 				}
 				HttpPost httpPost = new HttpPost(G.URL);
 				List <NameValuePair> nvps = new ArrayList <NameValuePair>();
