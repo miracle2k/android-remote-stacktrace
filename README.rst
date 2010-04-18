@@ -14,18 +14,14 @@ Simple
         buildUserInterface();
     }
 
-This is straightforward: The setup() call will submit any existing
-stacktraces, and will then install the custom exception handler.
-As you can see, there is an obvious downside: Submitting the traces
-happens asychronously in a thread, so while submission is ongoing,
-your main thread, in this case the buildUserInterface() call is 
-proceeding. Is is therefore possible that exceptions occur in that 
-time which will not be processed, since the handler has not yet 
-been installed.
-
+This is straightforward: The setup() call install the custom exception
+handler, and submit any existing traces from earlier crashes.
 
 Custom processor
 ----------------
+
+If you would like to customize the process, for example letting the user
+know about the stack trace submission, you can use a processor:
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -44,80 +40,66 @@ Custom processor
             }
 
             @Override
-            public void handlerInstalled() {
-                buildUserInterface();
-            }
+            public void handlerInstalled() {}
         }));
+
+        buildUserInterface();
     }
 
-As you can see, we are avoiding the problem described in the previous
-section by calling buildUserInterface() inside the "handlerInstalled"
-callback. This means we can be sure that any exceptions occuring there
-will be caught, and a trace be saved.
 
-Further, to ensure that in case trace submission takes a bit longer 
-(maybe the device is on a bad mobile connection) the user doesn't just
-see a blank screen, we are showing a dialog. You probably want to make
-this dialog have no buttons and set "cancelable" to false.
+You probably want to make the dialog have no buttons and set "cancelable"
+to false.
 
 
 Asking the user
 ---------------
 
-You may want to ask the user if he agrees with submitting the trace. 
-Due to the asynchronous nature of the Android UI there isn't really 
-a good way to do this solely inside the custom Processor. Instead,
-you need to do something along these lines:
+You may want to ask the user if he agrees with submitting the trace.
+This is really easy as well, if somewhat awkward to write:
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-        if (ExceptionHandler.hasStrackTraces()) {
-            askUserIfWeMaySubmit();
-        }
-        else {
-            installHandlerAndGo(false);
-        }
-    }
-
-    private void askUserPermissionResult(boolean permissionGranted) {
-        installHandlerAndGo(true);
-    }
-
-    private void installHandlerAndGo(boolean doSubmit) {
         ExceptionHandler.setup(this, new ExceptionHandler.Processor() {
             @Override
             public boolean beginSubmit() {
-                if (!doSubmit)
-                    return false;
-               
-                showDialog(DIALOG_SUBMITTING_EXCEPTIONS);
-                return true;
+                // Don't submit traces that may exist, we just
+                // install the handler.
+                return false;
             }
-
             @Override
-            public void submitDone() {
-                mExceptionSubmitDialog.cancel();
-            }
-
+            public void submitDone() {}
             @Override
-            public void handlerInstalled() {
-                buildUserInterface();
-            }
+            public void handlerInstalled() {}
         }));
+
+        // Manually have a look at whether there are traces, and if so,
+        // ask the user if we may submit them.
+        if (ExceptionHandler.hasStrackTraces())
+            askUserIfWeMaySubmit();
+    }
+
+    private void askUserPermissionResult(boolean permissionGranted) {
+        if (!permissionGranted) {
+            // Clear the traces we won't submit now from memory.
+            ExceptionHandler.clear();
+        }
+        else {
+            ExceptionHandler.submit();
+        }
     }
 
 
 Handling orientation change
 ---------------------------
 
-What happens if the user changes the orientation of the device while the 
+What happens if the user changes the orientation of the device while the
 thread sending out the stack traces is still active?
 
 Well, the exception handler ensures that no second thread will be started,
 and you can rely on the handlerInstalled() callback to be run for every setup()
-call, just as if the handler was installed for the first time. 
+call, just as if the handler was installed for the first time.
 
 However, notice a couple of things:
 
@@ -129,15 +111,15 @@ However, notice a couple of things:
 
  * Note that the dialog we display in the previous example is manually created;
    The Activity's showDialog() is not used. This is because showDialog() would
-   automatically recreate the dialog upon orientation change, while the 
+   automatically recreate the dialog upon orientation change, while the
    submitDone() callback from the first setup() call still references the first
    dialog object, from the first Activity instance.
 
-Those are simple to solve. The class already does some work to ensure that 
+Those are simple to solve. The class already does some work to ensure that
 when setup() is called a second time before the submission thread has finished,
 that subsequently the new processor object from the current setup() call will
-be used by the thread. This already ensures that in many cases, the correct 
-dialog instance would be referenced if you were to use showDialog(). 
+be used by the thread. This already ensures that in many cases, the correct
+dialog instance would be referenced if you were to use showDialog().
 
 There is however an edge case: It is entirely possible that the submission
 thread finishes **before** the new is created, but after the state of the
@@ -157,7 +139,7 @@ callback until the next time setup() is called.
 Customizations
 --------------
 
-The following methods need to be run before the ExceptionHandler.setup() 
+The following methods need to be run before the ExceptionHandler.setup()
 call, for example:
 
     ExceptionHandler.setUrl('http://my.site.com/bugs');

@@ -35,19 +35,9 @@ public class MainActivity extends Activity {
 			}
 
 			@Override
-			public void handlerInstalled() {
-				continueActivitySetup();
-			}
+			public void handlerInstalled() {}
 		});
-    }
 
-    @Override
-	protected void onDestroy() {
-    	ExceptionHandler.notifyContextGone();
-		super.onDestroy();
-	}
-
-	private void continueActivitySetup() {
     	findViewById(R.id.crash_button).setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -55,6 +45,12 @@ public class MainActivity extends Activity {
 			}
 		});
     }
+
+    @Override
+	protected void onDestroy() {
+		ExceptionHandler.notifyContextGone();
+		super.onDestroy();
+	}
 
 	@Override
 	protected Dialog onCreateDialog(int id) {

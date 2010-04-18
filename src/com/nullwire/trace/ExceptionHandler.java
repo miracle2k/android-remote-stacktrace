@@ -33,8 +33,10 @@ package com.nullwire.trace;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,14 +72,14 @@ import android.util.Log;
  *          	return true;
  *          }
  *
- *          void handlerInstalled() {
- *          	continueWithAppSetup();
- *          }
+ *          void handlerInstalled() {}
  *      });
  */
 public class ExceptionHandler {
 
-	private static String[] stackTraceFileList = null;
+	// Stores loaded stack traces in memory. Each element is
+	// a tuple of (app version, android version, phone model, actual trace).
+	private static ArrayList<String[]> sStackTraces = null;
 
 	private static ActivityAsyncTask<Processor, Object, Object, Object> sTask;
 	private static boolean sVerbose = false;
@@ -92,8 +94,8 @@ public class ExceptionHandler {
 	}
 
 	/**
-	 * Submit any saved stracktraces, then setup the handler for
-	 * unhandled exceptions.
+	 * Setup the handler for unhandled exceptions, and submit stack
+	 * traces from a previous crash.
 	 *
 	 * @param context
 	 * @param processor
@@ -110,12 +112,6 @@ public class ExceptionHandler {
 				// disconnected.
 				sTask.connectTo(null);
 				sTask.connectTo(processor);
-			}
-			else {
-				// We want to provide an API where we guarantee that the
-				// handlerInstalled callback will be called, for the user
-				// to continue processing.
-				processor.handlerInstalled();
 			}
 			return false;
 		}
@@ -149,69 +145,20 @@ public class ExceptionHandler {
 			Log.d(G.TAG, "URL: " + G.URL);
 		}
 
-		boolean stackTracesFound = (searchForStackTraces().length > 0);
+		// First, search for and load stack traces
+		getStackTraces();
 
-		// If no traces exist, we don't need to submit anything, and we
-		// can go straight to setting up the exception intercept.
-		if (!stackTracesFound) {
-			installHandler();
-			processor.handlerInstalled();
-		}
-		// Otherwise, we need to submit the existing stacktraces.
-		else {
-			boolean proceed = processor.beginSubmit();
-			if (!proceed) {
-				installHandler();
-				processor.handlerInstalled();
-			}
-			else {
-				sTask = new ActivityAsyncTask<Processor, Object, Object, Object>(processor) {
+		// Second, install the exception handler
+		installHandler();
+		processor.handlerInstalled();
 
-					private long mTimeStarted;
-
-					@Override
-					protected void onPreExecute() {
-						super.onPreExecute();
-						mTimeStarted = System.currentTimeMillis();
-					}
-
-					@Override
-					protected Object doInBackground(Object... params) {
-						submitStackTraces();
-
-						long rest = sMinDelay - (System.currentTimeMillis() - mTimeStarted);
-						if (rest > 0)
-							try {
-								Thread.sleep(rest);
-							} catch (InterruptedException e) { e.printStackTrace(); }
-
-						return null;
-					}
-
-					@Override
-					protected void onCancelled() {
-						super.onCancelled();
-						installHandler();
-						mWrapped.handlerInstalled();
-					}
-
-					@Override
-					protected void processPostExecute(Object result) {
-						mWrapped.submitDone();
-						installHandler();
-						mWrapped.handlerInstalled();
-					}
-				};
-				sTask.execute();
-			}
-		}
-
-		return stackTracesFound;
+		// Third, submit any traces we may have found
+		return submit(processor);
 	}
 
 	/**
-	 * Submit any saved stacktraces, then setup the handler for
-	 * unhandled exceptions.
+	 * Setup the handler for unhandled exceptions, and submit stack
+	 * traces from a previous crash.
 	 *
 	 * Simplified version that uses a default processor.
 	 *
@@ -239,6 +186,88 @@ public class ExceptionHandler {
 			return;
 
 		sTask.connectTo(null);
+	}
+
+	/**
+	 * Submit stack traces. This is public because in some cases you
+	 * might want to manually ask the traces to be submitted, for
+	 * example after asking the user's permission.
+	 */
+	public static boolean submit(final Processor processor) {
+		if (!sSetupCalled)
+			throw new RuntimeException("you need to call setup() first");
+
+		boolean stackTracesFound = hasStrackTraces();
+
+		// If traces exist, we need to submit them
+		if (stackTracesFound) {
+			boolean proceed = processor.beginSubmit();
+			if (proceed)
+			{
+				// Move the list of traces to a private variable.
+				// This ensures that subsequent calls to hasStackTraces()
+				// while the submission thread is ongoing, will return
+				// false, or at least would refer to some new set of
+				// traces.
+				//
+				// Yes, it would not be a problem from our side to have
+				// two of these submission threads ongoing at the same
+				// time (although it wouldn't currently happen as no new
+				// traces can be added to the list besides through crashing
+				// the process); however, the user's callback processor
+				// might not be written to deal with that scenario.
+				final ArrayList<String[]> tracesNowSubmitting = sStackTraces;
+				sStackTraces = null;
+
+				sTask = new ActivityAsyncTask<Processor, Object, Object, Object>(processor) {
+
+					private long mTimeStarted;
+
+					@Override
+					protected void onPreExecute() {
+						super.onPreExecute();
+						mTimeStarted = System.currentTimeMillis();
+					}
+
+					@Override
+					protected Object doInBackground(Object... params) {
+						submitStackTraces(tracesNowSubmitting);
+
+						long rest = sMinDelay - (System.currentTimeMillis() - mTimeStarted);
+						if (rest > 0)
+							try {
+								Thread.sleep(rest);
+							} catch (InterruptedException e) { e.printStackTrace(); }
+
+						return null;
+					}
+
+					@Override
+					protected void onCancelled() {
+						super.onCancelled();
+					}
+
+					@Override
+					protected void processPostExecute(Object result) {
+						mWrapped.submitDone();
+					}
+				};
+				sTask.execute();
+			}
+		}
+
+		return stackTracesFound;
+	}
+
+	/**
+	 * Version of submit() that doesn't take a processor.
+	 */
+	public static boolean submit() {
+		return submit(new Processor() {
+			public boolean beginSubmit() { return true; }
+			public void submitDone() {}
+			public void handlerInstalled() {}
+		});
 	}
 
 	/**
@@ -302,109 +331,159 @@ public class ExceptionHandler {
 	 * stop the submission from occurring.
 	 */
 	public static boolean hasStrackTraces() {
-		// Once setup has been called, always return false. The
-		// stack traces that now exists are essentially in the process
-		// of being submitted right now.
-		// This means that you can safely use this method in your
-		// Activity.onCreate() ->
-		if (sSetupCalled)
-			return false;
-		return (searchForStackTraces().length > 0);
+		return (getStackTraces().size() > 0);
 	}
 
 	/**
-	 * Search for stack trace files.
-	 * @return
+	 * Delete loaded stack traces from memory. Normally, this will
+	 * happen automatically after submission, but if you don't submit,
+	 * this is for you.
 	 */
-	private static String[] searchForStackTraces() {
-		if ( stackTraceFileList != null ) {
-			return stackTraceFileList;
+	public static void clear() {
+		sStackTraces = null;
+	}
+
+	/**
+	 * Search for stack trace files, read them into memory and delete
+	 * them from disk.
+	 *
+	 * They are read into memory immediately so we can go ahead and
+	 * install the exception handler right away, and only then try
+	 * and submit the traces.
+	 */
+	private static ArrayList<String[]> getStackTraces() {
+		if (sStackTraces != null) {
+			return sStackTraces;
 		}
+
+		Log.d(G.TAG, "Looking for exceptions in: " + G.FILES_PATH);
+
+		// Find list of .stacktrace files
 		File dir = new File(G.FILES_PATH + "/");
 		// Try to create the files folder if it doesn't exist
-		dir.mkdir();
-		// Filter for ".stacktrace" files
+		if (!dir.exists())
+			dir.mkdir();
 		FilenameFilter filter = new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				return name.endsWith(".stacktrace");
 			}
 		};
-		return (stackTraceFileList = dir.list(filter));
-	}
+		String[] list = dir.list(filter);
 
-	/**
-	 * Look into the files folder to see if there are any "*.stacktrace" files.
-	 * If any are present, submit them to the trace server.
-	 */
-	public static void submitStackTraces() {
+		Log.d(G.TAG, "Found "+list.length+" stacktrace(s)");
+
 		try {
-			Log.d(G.TAG, "Looking for exceptions in: " + G.FILES_PATH);
-			String[] list = searchForStackTraces();
-			if ( list != null && list.length > 0 ) {
-				Log.d(G.TAG, "Found "+list.length+" stacktrace(s)");
-				for (int i=0; i < list.length; i++) {
-					String filePath = G.FILES_PATH+"/"+list[i];
+			final int MAX_TRACES = 5;
+			sStackTraces = new ArrayList<String[]>();
+			for (int i=0; i < list.length; i++)
+			{
+				// Limit to a certain number of SUCCESSFULLY read traces
+				if (sStackTraces.size() >= MAX_TRACES)
+					break;
+
+				String filePath = G.FILES_PATH + "/" + list[i];
+
+				try {
+					String androidVersion = null;
+					String phoneModel = null;
+
 					// Extract the version from the filename: "packagename-version-...."
 					String version = list[i].split("-")[0];
 					Log.d(G.TAG, "Stacktrace in file '"+filePath+"' belongs to version " + version);
 					// Read contents of stacktrace
 					StringBuilder contents = new StringBuilder();
 					BufferedReader input =  new BufferedReader(new FileReader(filePath));
-					String line = null;
-					String androidVersion = null;
-					String phoneModel = null;
-					while (( line = input.readLine()) != null){
-						if (androidVersion == null) {
-							androidVersion = line;
-							continue;
+					try {
+						String line = null;
+						while ((line = input.readLine()) != null) {
+							if (androidVersion == null) {
+								androidVersion = line;
+								continue;
+							}
+							else if (phoneModel == null) {
+								phoneModel = line;
+								continue;
+							}
+							contents.append(line);
+							contents.append(System.getProperty("line.separator"));
 						}
-						else if (phoneModel == null) {
-							phoneModel = line;
-							continue;
-						}
-						contents.append(line);
-						contents.append(System.getProperty("line.separator"));
+					} finally {
+						input.close();
 					}
-					input.close();
-					String stacktrace;
-					stacktrace = contents.toString();
-					Log.d(G.TAG, "Transmitting stack trace: " + stacktrace);
-					// Transmit stack trace with POST request
-					DefaultHttpClient httpClient = null;
-					if (sTimeout != null) {
-						HttpParams params = new BasicHttpParams();
-						HttpConnectionParams.setConnectionTimeout(params, sTimeout);
-						HttpConnectionParams.setSoTimeout(params, sTimeout);
-						httpClient = new DefaultHttpClient(params);
-					}
-					else {
-						// Simply use the default timeout
-						httpClient = new DefaultHttpClient();
-					}
-					HttpPost httpPost = new HttpPost(G.URL);
-					List <NameValuePair> nvps = new ArrayList <NameValuePair>();
-					nvps.add(new BasicNameValuePair("package_name", G.APP_PACKAGE));
-					nvps.add(new BasicNameValuePair("package_version", version));
-					nvps.add(new BasicNameValuePair("phone_model", phoneModel));
-					nvps.add(new BasicNameValuePair("android_version", androidVersion));
-					nvps.add(new BasicNameValuePair("stacktrace", stacktrace));
-					httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8));
-					// We don't care about the response, so we just hope it went well and on with it
-					httpClient.execute(httpPost);
+					String stacktrace = contents.toString();
+
+					sStackTraces.add(new String[] {
+						version, androidVersion, phoneModel, stacktrace });
+				} catch (FileNotFoundException e) {
+					Log.e(G.TAG, "Failed to load stack trace", e);
+				} catch (IOException e) {
+					Log.e(G.TAG, "Failed to load stack trace", e);
 				}
+			}
+
+			return sStackTraces;
+		}
+		finally {
+			// Delete ALL the stack traces, even those not read (if
+			// there were too many), and do this within a finally
+			// clause so that even if something very unexpected went
+			// wrong above, it hopefully won't happen again the next
+			// time around (because the offending files are gone).
+			for (int i=0; i < list.length; i++)
+			{
+				try {
+					File file = new File(G.FILES_PATH+"/"+list[i]);
+					file.delete();
+				} catch (Exception e) {
+					Log.e(G.TAG, "Error deleting trace file: "+list[i], e);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Look into the files folder to see if there are any "*.stacktrace" files.
+	 * If any are present, submit them to the trace server.
+	 */
+	private static void submitStackTraces(ArrayList<String[]> list) {
+		try {
+			if (list == null)
+				return;
+			for (int i=0; i < list.size(); i++)
+			{
+				String[] record = list.get(i);
+				String version = record[0];
+				String androidVersion = record[1];
+				String phoneModel = record[2];
+				String stacktrace = record[3];
+
+				Log.d(G.TAG, "Transmitting stack trace: " + stacktrace);
+				// Transmit stack trace with POST request
+				DefaultHttpClient httpClient = null;
+				if (sTimeout != null) {
+					HttpParams params = new BasicHttpParams();
+					HttpConnectionParams.setConnectionTimeout(params, sTimeout);
+					HttpConnectionParams.setSoTimeout(params, sTimeout);
+					httpClient = new DefaultHttpClient(params);
+				}
+				else {
+					// Simply use the default timeout
+					httpClient = new DefaultHttpClient();
+				}
+				HttpPost httpPost = new HttpPost(G.URL);
+				List <NameValuePair> nvps = new ArrayList <NameValuePair>();
+				nvps.add(new BasicNameValuePair("package_name", G.APP_PACKAGE));
+				nvps.add(new BasicNameValuePair("package_version", version));
+				nvps.add(new BasicNameValuePair("phone_model", phoneModel));
+				nvps.add(new BasicNameValuePair("android_version", androidVersion));
+				nvps.add(new BasicNameValuePair("stacktrace", stacktrace));
+				httpPost.setEntity(new UrlEncodedFormEntity(nvps, HTTP.UTF_8));
+				// We don't care about the response, so we just hope it
+				// went well and on with it.
+				httpClient.execute(httpPost);
 			}
 		} catch (Exception e) {
 			Log.e(G.TAG, "Error submitting trace", e);
-		} finally {
-			try {
-				String[] list = searchForStackTraces();
-				for ( int i = 0; i < list.length; i ++ ) {
-					File file = new File(G.FILES_PATH+"/"+list[i]);
-					file.delete();
-				}
-			} catch (Exception e) {
-				Log.e(G.TAG, "Error deleting trace files", e);
-			}
 		}
 	}
 
