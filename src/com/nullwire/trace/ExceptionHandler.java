@@ -48,6 +48,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 
 import android.content.Context;
@@ -463,6 +464,11 @@ public class ExceptionHandler {
 					HttpParams params = httpClient.getParams();
 					HttpConnectionParams.setConnectionTimeout(params, sTimeout);
 					HttpConnectionParams.setSoTimeout(params, sTimeout);
+					// Lighty 1.4 has trouble with the expect header
+					// (http://redmine.lighttpd.net/issues/1017), and a
+					// potential workaround is only included in 1.4.21
+					// (http://www.lighttpd.net/2009/2/16/1-4-21-yes-we-can-do-another-release).
+					HttpProtocolParams.setUseExpectContinue(params, false);
 				}
 				HttpPost httpPost = new HttpPost(G.URL);
 				List <NameValuePair> nvps = new ArrayList <NameValuePair>();
