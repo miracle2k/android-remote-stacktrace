@@ -168,4 +168,4 @@ Building
 Copy "local.properties.template" to "local.properties", and edit it to
 set the correct "lib.dir" path to your Android SDK platform. Then run:
 
-    $ ant build
+    $ ant package
